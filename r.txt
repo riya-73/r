@@ -1,0 +1,323 @@
+#set 1
+#set1
+# Common setup for all practicals
+library(forecast)
+library(tseries)
+
+data("AirPassengers")
+y <- AirPassengers
+plot(y, main="Original AirPassengers",
+     xlab="Year", ylab="Passengers")
+
+
+# 12-month moving average
+ma <- ma(y, order=12, centre=TRUE)
+
+plot(ma, main="ergse",xlab='rtgrt', ylab='tgwt')
+
+# Smoothing methods
+ses <- ses(y, h=12)
+holt <- holt(y, h=12)
+hw_add <- hw(y, seasonal="additive", h=12)
+hw_mul <- hw(y, seasonal="multiplicative", h=12)
+
+# Compare original and moving average
+plot(y, main="Original vs Moving Average")
+lines(ma, col="red", lwd=2)
+
+
+# Display estimated smoothing parameters
+cat("SES Parameters:\n")
+print(ses$model$par)
+
+cat("\nHolt Parameters:\n")
+print(holt$model$par)
+
+cat("\nHolt-Winters Additive Parameters:\n")
+print(hw_add$model$par)
+
+cat("\nHolt-Winters Multiplicative Parameters:\n")
+print(hw_mul$model$par)
+
+
+# Compare all fitted series
+plot(y, main="Smoothing Methods Comparison")
+lines(fitted(ses), col="red")
+lines(fitted(holt), col="blue")
+lines(fitted(hw_add), col="green")
+lines(fitted(hw_mul), col="purple")
+legend("topleft",
+       c("Original","SES","Holt","HW Add","HW Mul"),
+       col=c("black","red","blue","green","purple"),
+       lty=1, cex=0.7)
+
+#q2
+
+y <- AirPassengers
+z <- diff(log(y))  # transformed series
+
+par(mfrow=c(2,2))
+plot(z, main="Differenced Log Series")
+acf(z, main="ACF")
+pacf(z, main="PACF")
+
+ar <- arima(z, order=c(1,0,0))
+ma <- arima(z, order=c(0,0,1))
+
+ar
+ma
+abs(ar$coef["ar1"]) < 1  # TRUE means stationary AR(1)
+par(mfrow=c(1,1))
+
+#set 2
+#set2
+# Common setup
+library(forecast)
+library(tseries)
+
+data("AirPassengers")
+y <- AirPassengers
+
+# Q1: ARMA(1,1) on differenced passenger data
+z <- diff(y)
+fit_arma <- arima(z, order=c(1,0,1))
+print(fit_arma)
+
+# Estimated mathematical equation
+phi <- fit_arma$coef["ar1"]
+theta <- fit_arma$coef["ma1"]
+intercept <- fit_arma$coef["intercept"]
+
+cat("AR coefficient:", phi, "\n")
+cat("MA coefficient:", theta, "\n")
+cat("Intercept:", intercept, "\n")
+
+cat("Equation: z[t] =", intercept,
+    "+", phi, "* z[t-1] + e[t] +",
+    theta, "* e[t-1]\n")
+
+# Check AR and MA characteristic roots
+ar_roots <- polyroot(c(1, -phi))
+ma_roots <- polyroot(c(1, theta))
+
+print(ar_roots)
+print(ma_roots)
+
+
+# Q2: ADF test before and after differencing
+
+adf.test(y)
+adf.test(z)
+
+fit_arima <- auto.arima(y)
+print(fit_arima)
+
+fc <- forecast(fit_arima, h=12, level=95)
+
+plot(fc, main="ARIMA Forecast vs Original",
+     xlab="Year", ylab="Passengers")
+lines(y, col="black", lwd=2)
+
+#set 3
+#a
+
+library(forecast)
+data("AirPassengers")
+ap <- AirPassengers
+
+plot(ap , main= "Airpassengers")
+seasonplot(ap, main="monthy season plot")
+
+log_ap<- log(ap)
+model <- arima(log_ap, order = c(0,,1), seasonal = list(order=c(0,0,1),p =12))
+print(model)
+
+fc <- forecast(model, h = 12, )
+plot(fc)
+#b
+time<- 1:length(ap)
+month<- factor(cycle(ap))
+reg_model<- lm(as.numeric(ap)~time+month)
+
+summary(reg_model)
+pred<- fitted(reg_model)
+plot(ap)
+lines(ts(pred, start=start(ap), frequency = 12), col= "red", lwd = 2)
+
+r2 <-  summary(reg_model)$r.squared
+rmse<- sqrt(mean(as.numeric(ap)-pred)^2)
+print(r2)
+print(rmse)
+
+#c
+log_ap<- log(ap)
+mle<- arima(log_ap,order = c(1,1,1), method="CSS-ML")
+cls<- arima(log_ap, order=c(1,1,1), method = "CSS")
+
+#d
+best_aic = Inf
+best_p = 0
+best_q= 0
+
+for (p in 0.3){
+  for (q in 0.3){
+    model <- try(
+      arima(log_ap, order = c(p, 1, q)),
+      silent = TRUE
+    )
+    
+    if (!inherits(model, "try-error")) {
+      aic <- AIC(model)
+      
+      if (aic < best_aic) {
+        best_aic <- aic
+        best_p <- p
+        best_q <- q
+      }
+    }
+  }
+}
+
+print(best_q)
+print(best_aic)
+print(best_p)
+
+#set4
+y <- log(AirPassengers)
+orders <- list(c(1,1,1), c(2,1,1), c(0,1,2))
+results <- data.frame()
+
+for(o in orders) {
+  fit <- arima(y, order=o)
+  n <- length(residuals(fit))
+  k <- length(fit$coef)
+  fpe <- fit$sigma2 * (n+k)/(n-k)
+  
+  results <- rbind(results, data.frame(
+    Model=paste(o, collapse=","),
+    LogLik=as.numeric(logLik(fit)),
+    AIC=AIC(fit), BIC=BIC(fit), FPE=fpe))
+}
+
+results
+
+
+fit <- auto.arima(log(AirPassengers))
+e <- residuals(fit)
+
+par(mfrow=c(2,2))
+plot(e, main="Residuals")
+acf(e, main="Residual ACF")
+hist(e, probability=TRUE, main="Residual Histogram")
+lines(density(e), col="red")
+qqnorm(e)
+qqline(e, col="red")
+par(mfrow=c(1,1))
+
+
+library(FinTS)
+
+fit <- auto.arima(log(AirPassengers))
+e <- na.omit(residuals(fit))
+
+Box.test(e, lag=12, type="Ljung-Box")
+Box.test(e^2, lag=12, type="Ljung-Box")
+
+# ARCH LM test
+ArchTest(e, lags=12)
+
+
+library(rugarch)
+y <- na.omit(diff(log(AirPassengers)))
+
+spec <- ugarchspec(
+  variance.model=list(model="sGARCH",
+                      garchOrder=c(1,1)),
+  mean.model=list(armaOrder=c(0,0))
+)
+
+fit <- ugarchfit(spec, data=y)
+
+plot(sigma(fit)^2, type="l",
+     main="GARCH Conditional Variance",
+     ylab="Variance", xlab="Time")
+
+#set 5
+#set5
+library(forecast)
+
+y <- AirPassengers
+train <- window(y, end=c(1958,12))
+test <- window(y, start=c(1959,1))
+
+# Holt-Winters multiplicative
+hw <- hw(train, seasonal="multiplicative", h=24)
+plot(hw, main="Holt-Winters Forecast vs Test")
+lines(test, col="red")
+
+accuracy(hw, test)
+
+m1 <- HoltWinters(y, alpha=0.2,
+                  beta=FALSE, gamma=FALSE)
+m2 <- HoltWinters(y, alpha=0.8,
+                  beta=FALSE, gamma=FALSE)
+
+plot(y, main="SES: Alpha Comparison")
+lines(fitted(m1)[,"xhat"], col="red")
+lines(fitted(m2)[,"xhat"], col="blue")
+legend("topleft", c("Original","Alpha 0.2","Alpha 0.8"),
+       col=c("black","red","blue"), lty=1)
+
+#q2
+
+# SARIMA(1,1,1)(1,1,0)[12]
+sar <- Arima(train, order=c(1,1,1),
+             seasonal=c(1,1,0))
+sf <- forecast(sar, h=24)
+
+# Compare forecasts
+plot(hw, main="HW vs SARIMA Forecast")
+lines(sf$mean, col="blue")
+lines(test, col="red")
+
+rbind(HoltWinters=accuracy(hw,test)["Test set",
+                                    c("RMSE","MAE")],
+      SARIMA=accuracy(sf,test)["Test set",
+                               c("RMSE","MAE")])
+
+#set 6
+library(forecast)
+library(lmtest)
+
+y <- log(AirPassengers)
+
+# 1. ARIMA(2,1,2): coefficient significance
+fit <- arima(y, order=c(2,1,2))
+se <- sqrt(diag(fit$var.coef))
+z <- fit$coef / se
+data.frame(Estimate=fit$coef, SE=se, Z=z,
+           P=2*pnorm(-abs(z)))
+
+# 2. Remove non-significant terms; compare AIC
+fits <- lapply(list(c(2,1,2), c(0,1,2), c(0,1,1)),
+               function(o) arima(y, order=o))
+data.frame(Model=c("212","012","011"),
+           AIC=sapply(fits, AIC))
+
+# 3. AIC and BIC grid search
+r <- expand.grid(p=0:3, q=0:3)
+r$AIC <- r$BIC <- NA
+for(i in 1:nrow(r)) {
+  f <- arima(y, order=c(r$p[i],1,r$q[i]))
+  r$AIC[i] <- AIC(f)
+  r$BIC[i] <- BIC(f)
+}
+r[order(r$BIC), ]
+
+# 4. Residual diagnostics for the lowest-BIC model
+best <- r[which.min(r$BIC), ]
+fit <- arima(y, order=c(best$p,1,best$q))
+e <- na.omit(residuals(fit))
+dwtest(e ~ 1)
+spec.pgram(e, cumulative=TRUE,
+           main="Cumulative Periodogram of Residuals")

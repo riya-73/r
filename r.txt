@@ -103,67 +103,114 @@ ma_roots <- polyroot(c(1, theta))
 print(ar_roots)
 print(ma_roots)
 
+print(Mod(ar_roots) > 1)
+print(Mod(ma_roots) > 1)
 
 # Q2: ADF test before and after differencing
 
-adf.test(y)
-adf.test(z)
-
-fit_arima <- auto.arima(y)
-print(fit_arima)
-
-fc <- forecast(fit_arima, h=12, level=95)
-
-plot(fc, main="ARIMA Forecast vs Original",
-     xlab="Year", ylab="Passengers")
-lines(y, col="black", lwd=2)
-
-#set 3
-#a
 
 library(forecast)
+library(tseries)
+
+data("AirPassengers")
+y <- AirPassengers
+
+# 1. ADF test on raw passenger numbers
+adf.test(y)
+
+# 2. First-order differencing (d = 1)
+z <- diff(y, differences = 1)
+
+# 3. ADF test after differencing
+adf.test(z)
+
+# 4. Determine differencing order automatically
+d <- ndiffs(y, test = "adf")
+print(d)
+
+# 5. Fit ARIMA model
+fit_arima <- auto.arima(y, d = d)
+print(fit_arima)
+
+# 6. Forecast next 12 months
+fc <- forecast(fit_arima, h = 12, level = 95)
+
+# 7. Plot forecast
+plot(fc, main = "ARIMA Forecast vs Original",
+     xlab = "Year", ylab = "Passengers")
+#set 3
+#a
+#a
+library(forecast)
+library(tseries)
+
 data("AirPassengers")
 ap <- AirPassengers
 
-plot(ap , main= "Airpassengers")
-seasonplot(ap, main="monthy season plot")
+plot(ap, main="AirPassengers")
+seasonplot(ap, main="Monthly Seasonal Plot")
 
-log_ap<- log(ap)
-model <- arima(log_ap, order = c(0,,1), seasonal = list(order=c(0,0,1),p =12))
+log_ap <- log(ap)
+
+model <- arima(log_ap,
+               order = c(0,1,1),
+               seasonal = list(order=c(0,1,1), period=12))
+
 print(model)
 
-fc <- forecast(model, h = 12, )
-plot(fc)
+fc <- forecast(model, h=12)
+plot(fc, main="SARIMA Forecast")
+
 #b
-time<- 1:length(ap)
-month<- factor(cycle(ap))
-reg_model<- lm(as.numeric(ap)~time+month)
 
+time <- 1:length(ap)
+month <- factor(cycle(ap))
+
+reg_model <- lm(as.numeric(ap) ~ time + month)
 summary(reg_model)
-pred<- fitted(reg_model)
-plot(ap)
-lines(ts(pred, start=start(ap), frequency = 12), col= "red", lwd = 2)
 
-r2 <-  summary(reg_model)$r.squared
-rmse<- sqrt(mean(as.numeric(ap)-pred)^2)
+pred <- fitted(reg_model)
+
+plot(ap, main="Actual vs Regression Fitted",
+     xlab="Year", ylab="Passengers")
+lines(ts(pred, start=start(ap), frequency=12),
+      col="red", lwd=2)
+
+r2 <- summary(reg_model)$r.squared
+rmse <- sqrt(mean((as.numeric(ap) - pred)^2))
+
 print(r2)
 print(rmse)
 
 #c
-log_ap<- log(ap)
-mle<- arima(log_ap,order = c(1,1,1), method="CSS-ML")
-cls<- arima(log_ap, order=c(1,1,1), method = "CSS")
+
+log_ap <- log(ap)
+
+mle <- arima(log_ap,
+             order=c(1,1,1),
+             method="ML")
+
+cls <- arima(log_ap,
+             order=c(1,1,1),
+             method="CSS")
+
+print(mle)
+print(cls)
+
+print(mle$coef)
+print(cls$coef)
 
 #d
-best_aic = Inf
-best_p = 0
-best_q= 0
 
-for (p in 0.3){
-  for (q in 0.3){
+best_aic <- Inf
+best_p <- 0
+best_q <- 0
+
+for (p in 0:3) {
+  for (q in 0:3) {
     model <- try(
-      arima(log_ap, order = c(p, 1, q)),
-      silent = TRUE
+      arima(log_ap, order=c(p,1,q)),
+      silent=TRUE
     )
     
     if (!inherits(model, "try-error")) {
@@ -178,9 +225,9 @@ for (p in 0.3){
   }
 }
 
+print(best_p)
 print(best_q)
 print(best_aic)
-print(best_p)
 
 #set4
 y <- log(AirPassengers)
@@ -286,38 +333,109 @@ rbind(HoltWinters=accuracy(hw,test)["Test set",
                                c("RMSE","MAE")])
 
 #set 6
+
+# Topic 6: ARIMA Parameter Estimation and Order Selection
+# Topic 7: FPE, AIC, BIC and Residual Analysis
+
 library(forecast)
 library(lmtest)
 
+data("AirPassengers")
 y <- log(AirPassengers)
 
-# 1. ARIMA(2,1,2): coefficient significance
+# 1. Fit ARIMA(2,1,2) and test coefficient significance
+
 fit <- arima(y, order=c(2,1,2))
+
 se <- sqrt(diag(fit$var.coef))
 z <- fit$coef / se
-data.frame(Estimate=fit$coef, SE=se, Z=z,
-           P=2*pnorm(-abs(z)))
+p <- 2 * pnorm(-abs(z))
 
-# 2. Remove non-significant terms; compare AIC
-fits <- lapply(list(c(2,1,2), c(0,1,2), c(0,1,1)),
-               function(o) arima(y, order=o))
-data.frame(Model=c("212","012","011"),
-           AIC=sapply(fits, AIC))
+significance <- data.frame(
+  Estimate=fit$coef,
+  SE=se,
+  Z=z,
+  P=p,
+  Significant=p < 0.05
+)
 
-# 3. AIC and BIC grid search
+print(significance)
+
+# 2. Eliminate non-significant terms and compare models using AIC/BIC
+
+orders <- list(
+  c(2,1,2),
+  c(1,1,2),
+  c(2,1,1),
+  c(0,1,2),
+  c(1,1,1),
+  c(0,1,1)
+)
+
+fits <- lapply(orders, function(o) {
+  arima(y, order=o)
+})
+
+comparison <- data.frame(
+  Model=sapply(orders, function(o) paste(o, collapse=",")),
+  AIC=sapply(fits, AIC),
+  BIC=sapply(fits, BIC)
+)
+
+print(comparison)
+
+# 3. Grid search over AR(p) and MA(q) orders
+# p = 0 to 3, d = 1, q = 0 to 3
+
 r <- expand.grid(p=0:3, q=0:3)
-r$AIC <- r$BIC <- NA
+r$AIC <- NA
+r$BIC <- NA
+
 for(i in 1:nrow(r)) {
-  f <- arima(y, order=c(r$p[i],1,r$q[i]))
-  r$AIC[i] <- AIC(f)
-  r$BIC[i] <- BIC(f)
+  f <- try(
+    arima(y, order=c(r$p[i],1,r$q[i])),
+    silent=TRUE
+  )
+  
+  if(!inherits(f, "try-error")) {
+    r$AIC[i] <- AIC(f)
+    r$BIC[i] <- BIC(f)
+  }
 }
-r[order(r$BIC), ]
+
+r$Model <- paste0("ARIMA(", r$p, ",1,", r$q, ")")
+r$Order <- r$p + r$q
+
+# Display models sorted by BIC
+r <- r[order(r$BIC), ]
+print(r)
+
+# Best models according to AIC and BIC
+print("Best model according to AIC:")
+print(r[which.min(r$AIC), ])
+
+print("Best model according to BIC:")
+print(r[which.min(r$BIC), ])
 
 # 4. Residual diagnostics for the lowest-BIC model
+
 best <- r[which.min(r$BIC), ]
+
 fit <- arima(y, order=c(best$p,1,best$q))
+print(fit)
+
 e <- na.omit(residuals(fit))
-dwtest(e ~ 1)
-spec.pgram(e, cumulative=TRUE,
-           main="Cumulative Periodogram of Residuals")
+
+# Durbin-Watson test
+dw_result <- dwtest(e ~ 1)
+print(dw_result)
+
+# Cumulative periodogram
+spec.pgram(
+  e,
+  cumulative=TRUE,
+  main="Cumulative Periodogram of Residuals"
+)
+
+# Additional residual diagnostic plots
+tsdisplay(e, main="Residual Diagnostics")

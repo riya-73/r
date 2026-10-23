@@ -1,0 +1,204 @@
+#wide & deep
+from tensorflow import keras
+from sklearn.datasets import fetch_california_housing
+from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import StandardScaler
+
+# 1. Load the dataset
+X, y = fetch_california_housing(return_X_y=True)
+
+print("Dataset shape:", X.shape)
+print("Target shape:", y.shape)
+
+# 2. Split the data into training and testing sets
+X_train, X_test, y_train, y_test = train_test_split(
+    X, y,
+    test_size=0.2,
+    random_state=42
+)
+
+# 3. Standardize the input features
+scaler = StandardScaler()
+X_train = scaler.fit_transform(X_train)
+X_test = scaler.transform(X_test)
+
+# 4. Build the neural network using Functional API
+inputs = keras.layers.Input(shape=(8,))
+
+hidden1 = keras.layers.Dense(
+    30, activation="relu"
+)(inputs)
+
+hidden2 = keras.layers.Dense(
+    30, activation="relu"
+)(hidden1)
+
+# Skip connection: combine original inputs with hidden2
+concat = keras.layers.Concatenate()([inputs, hidden2])
+
+# Output layer: predict one continuous value
+output = keras.layers.Dense(1)(concat)
+
+model = keras.Model(inputs=inputs, outputs=output)
+
+# 5. Compile the model
+model.compile(
+    optimizer="adam",
+    loss="mse",
+    metrics=["mae"]
+)
+
+# 6. Train the model
+history = model.fit(
+    X_train, y_train,
+    epochs=10,
+    batch_size=32,
+    validation_split=0.2,
+    verbose=1
+)
+
+# 7. Evaluate on unseen test data
+test_loss, test_mae = model.evaluate(
+    X_test, y_test, verbose=0
+)
+
+print(f"Test MSE: {test_loss:.4f}")
+print(f"Test MAE: {test_mae:.4f}")
+
+# 8. Make predictions for a few houses
+predictions = model.predict(X_test[:5], verbose=0)
+
+print("Actual prices:", y_test[:5])
+print("Predicted prices:", predictions.flatten())
+
+#multiple
+
+from tensorflow import keras
+from sklearn.datasets import fetch_california_housing
+from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import StandardScaler
+from sklearn.metrics import r2_score
+
+# Load dataset
+X, y = fetch_california_housing(return_X_y=True)
+
+# Split dataset
+X_train, X_test, y_train, y_test = train_test_split(
+    X, y, test_size=0.2, random_state=42
+)
+
+# Standardize features
+scaler = StandardScaler()
+X_train = scaler.fit_transform(X_train)
+X_test = scaler.transform(X_test)
+
+# Split inputs into two groups
+A_train, B_train = X_train[:, :5], X_train[:, 2:]
+A_test, B_test = X_test[:, :5], X_test[:, 2:]
+
+# Create two inputs
+input_A = keras.layers.Input(shape=(5,))
+input_B = keras.layers.Input(shape=(6,))
+
+# Deep branch
+hidden1 = keras.layers.Dense(30, activation="relu")(input_B)
+hidden2 = keras.layers.Dense(30, activation="relu")(hidden1)
+
+# Combine inputs
+concat = keras.layers.Concatenate()([input_A, hidden2])
+
+# Output layer
+output = keras.layers.Dense(1)(concat)
+
+# Create model
+model = keras.Model([input_A, input_B], output)
+
+# Compile model
+model.compile(
+    optimizer="adam",
+    loss="mse",
+    metrics=["mae"]
+)
+
+# Train model
+model.fit([A_train, B_train], y_train, epochs=10)
+
+# Evaluate model
+loss, mae = model.evaluate([A_test, B_test], y_test)
+
+# Calculate R2 score
+y_pred = model.predict([A_test, B_test])
+print("Test MSE:", loss)
+print("Test MAE:", mae)
+print("R2 Score:", r2_score(y_test, y_pred))
+
+#multiple + auxi
+
+from tensorflow import keras
+from sklearn.datasets import fetch_california_housing
+from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import StandardScaler
+from sklearn.metrics import r2_score
+
+# Load dataset
+X, y = fetch_california_housing(return_X_y=True)
+
+# Split dataset
+X_train, X_test, y_train, y_test = train_test_split(
+    X, y, test_size=0.2, random_state=42
+)
+
+# Standardize features
+scaler = StandardScaler()
+X_train = scaler.fit_transform(X_train)
+X_test = scaler.transform(X_test)
+
+# Split inputs
+A_train, B_train = X_train[:, :5], X_train[:, 2:]
+A_test, B_test = X_test[:, :5], X_test[:, 2:]
+
+# Define inputs
+input_A = keras.layers.Input(shape=(5,))
+input_B = keras.layers.Input(shape=(6,))
+
+# Hidden layers
+hidden1 = keras.layers.Dense(30, activation="relu")(input_B)
+hidden2 = keras.layers.Dense(30, activation="relu")(hidden1)
+
+# Main output
+concat = keras.layers.Concatenate()([input_A, hidden2])
+main_output = keras.layers.Dense(1)(concat)
+
+# Auxiliary output
+aux_output = keras.layers.Dense(1)(hidden2)
+
+# Create model with two outputs
+model = keras.Model(
+    inputs=[input_A, input_B],
+    outputs=[main_output, aux_output]
+)
+
+# Compile model
+model.compile(
+    optimizer="adam",
+    loss=["mse", "mse"]
+)
+
+# Train model
+model.fit(
+    [A_train, B_train],
+    [y_train, y_train],
+    epochs=10
+)
+
+# Evaluate model
+model.evaluate(
+    [A_test, B_test],
+    [y_test, y_test]
+)
+
+# Predict using main output
+main_pred, aux_pred = model.predict([A_test, B_test])
+
+print("Main output R2:", r2_score(y_test, main_pred))
+print("Auxiliary output R2:", r2_score(y_test, aux_pred))

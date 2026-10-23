@@ -1,4 +1,4 @@
-
+#LSTM - SENTIMENT
 from tensorflow import keras
 from tensorflow.keras.datasets import imdb
 from tensorflow.keras.preprocessing.sequence import pad_sequences
@@ -39,3 +39,60 @@ loss, accuracy = model.evaluate(X_test, y_test)
 
 print("Test Loss:", loss)
 print("Test Accuracy:", accuracy * 100, "%")
+
+#LSTM - TEXT
+import numpy as np
+from tensorflow import keras
+
+# Sample text
+text = "deep learning uses neural networks. " * 20
+
+# Sequence length
+length = 20
+
+# Create character mappings
+chars = sorted(set(text))
+char_to_id = {c: i for i, c in enumerate(chars)}
+id_to_char = {i: c for c, i in char_to_id.items()}
+
+# Create input sequences and next-character targets
+X, y = [], []
+
+for i in range(len(text) - length):
+    X.append([char_to_id[c] for c in text[i:i + length]])
+    y.append(char_to_id[text[i + length]])
+
+X = np.array(X)
+y = np.array(y)
+
+# Build model
+model = keras.Sequential([
+    keras.layers.Input(shape=(length,)),
+    keras.layers.Embedding(len(chars), 32),
+    keras.layers.LSTM(64),
+    keras.layers.Dense(len(chars), activation="softmax")
+])
+
+# Compile model
+model.compile(
+    optimizer="adam",
+    loss="sparse_categorical_crossentropy"
+)
+
+# Train model
+model.fit(X, y, epochs=10)
+
+# Generate text
+seed = "deep learning uses"
+generated = seed
+
+for _ in range(100):
+    seq = [char_to_id[c] for c in generated[-length:]]
+    seq = keras.utils.pad_sequences(
+        [seq], maxlen=length, padding="pre"
+    )
+    pred = model.predict(seq, verbose=0)
+    next_id = np.argmax(pred[0])
+    generated += id_to_char[next_id]
+
+print(generated)

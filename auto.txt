@@ -1,0 +1,143 @@
+
+# DENOISING AUTOENCODER USING MNIST
+
+from tensorflow import keras
+from tensorflow.keras.datasets import mnist
+import numpy as np
+import matplotlib.pyplot as plt
+
+# 1. Load dataset
+(X_train, _), (X_test, _) = mnist.load_data()
+
+# 2. Normalize and flatten images
+X_train = X_train.reshape(-1, 784).astype("float32") / 255.0
+X_test = X_test.reshape(-1, 784).astype("float32") / 255.0
+
+# 3. Add noise to images
+noise_factor = 0.3
+
+X_train_noisy = X_train + noise_factor * np.random.normal(
+    loc=0.0, scale=1.0, size=X_train.shape
+)
+X_test_noisy = X_test + noise_factor * np.random.normal(
+    loc=0.0, scale=1.0, size=X_test.shape
+)
+
+# Clip pixel values between 0 and 1
+X_train_noisy = np.clip(X_train_noisy, 0.0, 1.0)
+X_test_noisy = np.clip(X_test_noisy, 0.0, 1.0)
+
+# 4. Build autoencoder
+inputs = keras.layers.Input(shape=(784,))
+
+encoded = keras.layers.Dense(128, activation="relu")(inputs)
+code = keras.layers.Dense(32, activation="relu")(encoded)
+
+decoded = keras.layers.Dense(128, activation="relu")(code)
+outputs = keras.layers.Dense(784, activation="sigmoid")(decoded)
+
+model = keras.Model(inputs, outputs)
+
+# 5. Compile model
+model.compile(optimizer="adam", loss="mse")
+
+# 6. Train on noisy images, target clean images
+model.fit(
+    X_train_noisy, X_train,
+    epochs=10,
+    batch_size=256,
+    validation_split=0.2
+)
+
+# 7. Evaluate
+test_loss = model.evaluate(X_test_noisy, X_test, verbose=0)
+print("Test Reconstruction Loss:", test_loss)
+
+# 8. Reconstruct noisy images
+reconstructed = model.predict(X_test_noisy[:5], verbose=0)
+
+# 9. Display noisy and reconstructed images
+plt.figure(figsize=(10, 4))
+
+for i in range(5):
+    plt.subplot(2, 5, i + 1)
+    plt.imshow(X_test_noisy[i].reshape(28, 28), cmap="gray")
+    plt.title("Noisy")
+    plt.axis("off")
+
+    plt.subplot(2, 5, i + 6)
+    plt.imshow(reconstructed[i].reshape(28, 28), cmap="gray")
+    plt.title("Denoised")
+    plt.axis("off")
+
+plt.tight_layout()
+plt.show()
+
+
+# SPARSE AUTOENCODER USING MNIST
+
+from tensorflow import keras
+from tensorflow.keras.datasets import mnist
+import matplotlib.pyplot as plt
+
+# 1. Load dataset
+(X_train, _), (X_test, _) = mnist.load_data()
+
+# 2. Normalize and flatten images
+X_train = X_train.reshape(-1, 784).astype("float32") / 255.0
+X_test = X_test.reshape(-1, 784).astype("float32") / 255.0
+
+# 3. Build sparse autoencoder
+inputs = keras.layers.Input(shape=(784,))
+
+encoded = keras.layers.Dense(
+    128,
+    activation="relu",
+    activity_regularizer=keras.regularizers.l1(1e-4)
+)(inputs)
+
+code = keras.layers.Dense(
+    32,
+    activation="relu",
+    activity_regularizer=keras.regularizers.l1(1e-4)
+)(encoded)
+
+decoded = keras.layers.Dense(128, activation="relu")(code)
+outputs = keras.layers.Dense(784, activation="sigmoid")(decoded)
+
+model = keras.Model(inputs, outputs)
+
+# 4. Compile model
+model.compile(optimizer="adam", loss="mse")
+
+# 5. Train the model to reconstruct original images
+model.fit(
+    X_train, X_train,
+    epochs=10,
+    batch_size=256,
+    validation_split=0.2
+)
+
+# 6. Evaluate
+test_loss = model.evaluate(X_test, X_test, verbose=0)
+print("Test Reconstruction Loss:", test_loss)
+
+# 7. Reconstruct test images
+reconstructed = model.predict(X_test[:5], verbose=0)
+
+# 8. Display original and reconstructed images
+plt.figure(figsize=(10, 4))
+
+for i in range(5):
+    plt.subplot(2, 5, i + 1)
+    plt.imshow(X_test[i].reshape(28, 28), cmap="gray")
+    plt.title("Original")
+    plt.axis("off")
+
+    plt.subplot(2, 5, i + 6)
+    plt.imshow(reconstructed[i].reshape(28, 28), cmap="gray")
+    plt.title("Reconstructed")
+    plt.axis("off")
+
+plt.tight_layout()
+plt.show()

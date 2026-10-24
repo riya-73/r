@@ -1,4 +1,21 @@
-# ============================================================
+Setting Up a TensorFlow Environment for Jupyter If the computer you are working on does not have TensorFlow, you can create your own isolated environment and use it from Jupyter. This document will show the exact steps. It assumes Anaconda and Jupyter are already installed. Before You Start • Open Anaconda Prompt (Windows) (Just search anaconda prompt) • Run all commands one at a time and wait for each to finish. 
+
+Step 1: Check that conda works conda --version A version number such as conda 22.x.x or 24.x.x should appear. 
+Step 2: Create the environment conda create -n tf_env python=3.11 -y This creates a new environment named tf_env with Python 3.11, which works well with TensorFlow. 
+Step 3: Activate the environment conda activate tf_env Your prompt should now begin with (tf_env). Keep this window open and run all remaining commands inside it. Step 4: Install TensorFlow first pip install tensorflow Install TensorFlow before the other libraries. It brings in a compatible version of NumPy, and installing it first avoids version conflicts. Keras is included automatically. 
+Step 5: Install the supporting libraries pip install pandas matplotlib seaborn scikit-learn scipy pillow These provide data handling (pandas), plotting (matplotlib, seaborn), preprocessing and metrics (scikitlearn), and image loading (pillow). 
+Step 6: Connect the environment to Jupyter pip install ipykernel python -m ipykernel install --user --name tf_env --display-name "Python (tf_env)" This makes the environment appear as a kernel inside Jupyter. 
+Step 7: Open Jupyter and select the kernel 
+1. Launch Jupyter as you normally do. 
+2. Create a new notebook and choose Python (tf_env) from the New menu, or use Kernel → Change kernel in an existing notebook. 
+3. Check that the kernel name at the top right reads Python (tf_env). 
+Step 8: Verify the setup Run this in a notebook cell: import numpy as np, sklearn import tensorflow as tf from tensorflow import keras  print("TensorFlow:", tf.__version__) print("NumPy:", np.__version__) print("scikit-learn:", sklearn.__version__)  model = keras.Sequential([     keras.layers.Input(shape=(4,)),     keras.layers.Dense(8, activation="relu"),     keras.layers.Dense(1, activation="sigmoid"), ]) model.compile(optimizer="adam", loss="binary_crossentropy") model.fit(np.random.rand(20, 4), np.random.randint(0, 2, 20), epochs=2) print("Setup works!") If it trains for two epochs and prints Setup works!, you are ready. Warnings about CPU instructions or oneDNN are harmless. Rules to Avoid NumPy and scikit-learn Problems 
+• Do not install or upgrade NumPy yourself. TensorFlow installs the right version. 
+• Install TensorFlow first, then everything else. 
+• Do not mix conda install and pip install for these libraries in the same environment. 
+• Never run pip install --upgrade numpy . Troubleshooting Problem Fix No matching distribution found for tensorflow Run python --version. It should show 3.11. Recreate the environment with Step 2. ModuleNotFoundError: No module named 'tensorflow' The notebook is on the wrong kernel. Switch to Python (tf_env). Kernel tf_env not listed in Jupyter Run jupyter kernelspec list. If it is missing, repeat Step 6 with (tf_env) active, then restart Jupyter. pip fails on the whole install line Check the package names for typos (for example matplotlib, not matplotlip). NumPy-related error such as "numpy.dtype size changed" Create a fresh environment and follow the steps in order without extra installs. Notes • No conda available? Use python -m venv tf_env, then activate it (tf_env\Scripts\activate on Window). Continue from Step 4. • GPU: Native Windows does not support TensorFlow GPU. CPU is enough so ignore the warning. • To Save your setup: pip freeze > requirements.txt records the installed versions so you can rebuild the environment later. 
+• For Removing the environment: conda remove -n tf_env --all.
+
 # 1. CIFAR-10 IMAGE CLASSIFICATION
 # ============================================================
 
